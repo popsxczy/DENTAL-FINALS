@@ -1,0 +1,266 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Front Desk Dashboard - Dental Information System</title>
+
+  {# WHAT: Bootstrap 5 + Bootstrap Icons from a CDN. HOW TO FIX "no styling": check your internet connection. #}
+  <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet">
+  <link href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.min.css" rel="stylesheet">
+
+  <style>
+    /* THEME COLOUR: the teal medical header colour required by the spec.
+       HOW TO MODIFY: change #00838f here and in the three places below that repeat it. */
+    :root { --teal: #00838f; --teal-dark: #006064; }
+
+    body { background: #f2f7f8; }                          /* WHAT: very light teal-grey page background. */
+    .top-header { background: var(--teal); }               /* WHAT: the teal navigation bar. */
+    .page-banner { background: var(--teal-dark); color: #fff; }   /* WHAT: darker strip holding the page title. */
+    .card-header-teal { background: var(--teal); color: #fff; }   /* WHAT: teal title strip of the form card. */
+    .btn-teal { background: var(--teal); color: #fff; border: 0; }
+    .btn-teal:hover { background: var(--teal-dark); color: #fff; }
+    .table thead th { background: #e0f2f4; color: #004d54; white-space: nowrap; }   /* WHAT: table header row. */
+  </style>
+</head>
+<body>
+
+  {# STATUS BADGE COLOURS (Jinja2)
+     WHAT: a dictionary that maps each status to a Bootstrap colour class.
+     WHY : the table below looks the colour up with status_colors.get(status, 'secondary') so the
+           if/else chain is not repeated. 'secondary' (grey) is the fallback for unknown statuses.
+     HOW TO MODIFY: add a new "Status": "colour" pair when you add a status in app.py (VALID_STATUSES). #}
+  {% set status_colors = {
+      'Scheduled': 'primary',
+      'Pending': 'warning text-dark',
+      'Completed': 'success',
+      'Cancelled': 'danger'
+  } %}
+
+  {# ======================= TEAL HEADER ======================= #}
+  <nav class="navbar top-header navbar-dark">
+    <div class="container-fluid px-4">
+      <a class="navbar-brand text-white" href="#">
+        Dental Information System
+      </a>
+      <div class="d-flex align-items-center text-white">
+        {# session is available in every template automatically. It holds what login() stored in app.py. #}
+        <span class="me-3 d-none d-sm-inline"><i class="bi bi-person-circle me-1"></i>{{ session.get('username') }}</span>
+        {# LOGOUT: a normal link to the /logout route (url_for uses the function name logout). #}
+        <a href="{{ url_for('logout') }}" class="btn btn-sm btn-outline-light"><i class="bi bi-box-arrow-right me-1"></i>Logout</a>
+      </div>
+    </div>
+  </nav>
+
+  {# ======================= TOP BANNER ======================= #}
+  <div class="page-banner py-3">
+    <div class="container-fluid px-4">
+      <h1 class="h3 mb-0">Front Desk Dashboard</h1>
+    </div>
+  </div>
+
+  <main class="container-fluid px-4 py-4">
+
+    {# FLASH MESSAGES: prints the one-time messages created with flash() in app.py.
+       The category (success/danger/warning/info) becomes the Bootstrap alert colour. #}
+    {% with messages = get_flashed_messages(with_categories=true) %}
+      {% for category, message in messages %}
+        <div class="alert alert-{{ category }} alert-dismissible fade show" role="alert">
+          {{ message }}
+          <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
+        </div>
+      {% endfor %}
+    {% endwith %}
+
+    {# ======================= ADD PATIENT RECORD FORM ======================= #}
+    <div class="card shadow-sm mb-4">
+      <div class="card-header card-header-teal"><i class="bi bi-person-plus me-2"></i>Add Patient Record</div>
+      <div class="card-body">
+
+        {# FORM: posts to /front-desk (the same page). app.py's front_desk() route receives it in its POST branch.
+           HOW TO FIX "nothing is saved": method must be POST, and every input's name="" must match app.py. #}
+        <form method="POST" action="{{ url_for('front_desk') }}">
+          <div class="row g-3">
+
+            {# FORM FIELD: patient name -> request.form['name'] #}
+            <div class="col-md-4">
+              <label for="name" class="form-label">Patient Name</label>
+              <input type="text" class="form-control" id="name" name="name" maxlength="100" required>
+            </div>
+
+            {# FORM FIELD: age -> request.form['age']. type="number" + min/max stop impossible ages in the browser;
+               app.py checks the same range again (never trust the browser alone). #}
+            <div class="col-md-2">
+              <label for="age" class="form-label">Age</label>
+              <input type="number" class="form-control" id="age" name="age" min="0" max="120" required>
+            </div>
+
+            {# FORM FIELD: contact number -> request.form['contact_number'] #}
+            <div class="col-md-3">
+              <label for="contact_number" class="form-label">Contact Number</label>
+              <input type="tel" class="form-control" id="contact_number" name="contact_number" maxlength="30" required>
+            </div>
+
+            {# FORM FIELD: treatment type -> request.form['treatment_type'].
+               list="treatmentOptions" attaches the <datalist> below = suggestions while still allowing free typing.
+               HOW TO MODIFY: add or remove <option> lines in the datalist. #}
+            <div class="col-md-3">
+              <label for="treatment_type" class="form-label">Treatment Type</label>
+              <input type="text" class="form-control" id="treatment_type" name="treatment_type"
+                     list="treatmentOptions" maxlength="100" required>
+              <datalist id="treatmentOptions">
+                <option value="Check-up"></option>
+                <option value="Cleaning"></option>
+                <option value="Filling"></option>
+                <option value="Extraction"></option>
+                <option value="Root Canal"></option>
+                <option value="Braces Adjustment"></option>
+                <option value="Teeth Whitening"></option>
+              </datalist>
+            </div>
+
+            {# FORM FIELD: appointment date and time -> request.form['date_and_time'].
+               type="datetime-local" gives a calendar + clock picker and sends text like 2026-10-26T14:30,
+               which parse_datetime_local() in app.py converts. #}
+            <div class="col-md-4">
+              <label for="date_and_time" class="form-label">Appointment Date &amp; Time</label>
+              <input type="datetime-local" class="form-control" id="date_and_time" name="date_and_time" required>
+            </div>
+
+            {# FORM FIELD: status dropdown -> request.form['status'].
+               JINJA LOOP: {% for s in statuses %} runs once per item of the "statuses" list that app.py passes
+               (VALID_STATUSES), printing one <option> each. Add a status in app.py and it appears here automatically. #}
+            <div class="col-md-4">
+              <label for="status" class="form-label">Status</label>
+              <select class="form-select" id="status" name="status" required>
+                {% for s in statuses %}
+                  <option value="{{ s }}">{{ s }}</option>
+                {% endfor %}
+              </select>
+            </div>
+
+            <div class="col-md-4 d-flex align-items-end">
+              <button type="submit" class="btn btn-teal w-100"><i class="bi bi-save me-1"></i>Save Record</button>
+            </div>
+          </div>
+        </form>
+      </div>
+    </div>
+
+    {# ======================= PATIENT RECORDS ======================= #}
+    <div class="card shadow-sm">
+      <div class="card-body">
+
+        <div class="d-flex flex-column flex-md-row justify-content-between align-items-md-center gap-2 mb-3">
+          <h2 class="h5 mb-0">Patient Records</h2>
+
+          {# LIVE SEARCH BAR: no form and no button. The script at the bottom of this page listens to this
+             input's "input" event and hides non-matching table rows instantly (no page reload, no server call). #}
+          <div class="input-group" style="max-width: 360px;">
+            <span class="input-group-text"><i class="bi bi-search"></i></span>
+            <input type="search" id="searchInput" class="form-control" placeholder="Search by patient name or treatment">
+          </div>
+        </div>
+
+        <div class="table-responsive">   {# WHAT: adds a horizontal scrollbar on narrow screens instead of breaking the layout. #}
+          <table class="table table-hover align-middle mb-0" id="recordsTable">
+            <thead>
+              <tr>
+                {# NOTE: the search script reads cell numbers (0 = ID, 1 = Name, ... 4 = Treatment).
+                   If you add/remove/reorder columns, update the cell numbers in the script too. #}
+                <th>ID</th>
+                <th>Name</th>
+                <th>Age</th>
+                <th>Contact</th>
+                <th>Treatment</th>
+                <th>Appointment Date</th>
+                <th>Status</th>
+                <th class="text-end">Actions</th>
+              </tr>
+            </thead>
+            <tbody id="recordsBody">
+
+              {# JINJA LOOP: {% for appt in appointments %} repeats the <tr> below once per appointment.
+                 "appointments" is the list passed from front_desk() in app.py.
+                 appt.patient.name works because Appointment has db.relationship('Patient') (no extra query code needed).
+                 {% else %} runs ONLY when the list is empty, so a new clinic sees a helpful message. #}
+              {% for appt in appointments %}
+                <tr class="record-row">
+                  <td>{{ appt.id }}</td>                                   {# appointment ID #}
+                  <td class="fw-semibold">{{ appt.patient.name }}</td>     {# searched by the script (cell 1) #}
+                  <td>{{ appt.patient.age }}</td>
+                  <td>{{ appt.patient.contact_number }}</td>
+                  <td>{{ appt.treatment_type }}</td>                       {# searched by the script (cell 4) #}
+                  {# strftime formats the date: %b = Oct, %d = 26, %Y = 2026, %I:%M %p = 02:30 PM #}
+                  <td>{{ appt.date_and_time.strftime('%b %d, %Y %I:%M %p') }}</td>
+                  <td>
+                    {# STATUS BADGE: the colour class comes from the status_colors dictionary at the top. #}
+                    <span class="badge bg-{{ status_colors.get(appt.status, 'secondary') }}">{{ appt.status }}</span>
+                  </td>
+                  <td class="text-end">
+                    {# ACTIONS: ONLY an Edit button. There is deliberately NO delete button for the front desk,
+                       and app.py's delete_appointment() blocks non-doctors even if they type the URL by hand. #}
+                    <a href="{{ url_for('edit_appointment', id=appt.id) }}" class="btn btn-sm btn-outline-primary">
+                      <i class="bi bi-pencil-square me-1"></i>Edit
+                    </a>
+                  </td>
+                </tr>
+              {% else %}
+                <tr>
+                  <td colspan="8" class="text-center text-muted py-4">No records yet. Use the form above to add the first patient.</td>
+                </tr>
+              {% endfor %}
+
+              {# "NO MATCH" ROW: hidden by default; the script shows it when a search finds nothing. #}
+              <tr id="noMatchRow" style="display:none;">
+                <td colspan="8" class="text-center text-muted py-4">No records match your search.</td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+  </main>
+
+  {# Bootstrap JavaScript bundle: needed only for the dismiss (X) button on alerts. #}
+  <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
+
+  <script>
+    /* ---------------------------------------------------------------------
+       LIVE SEARCH FILTER
+       WHAT: hides every table row whose Patient Name AND Treatment Type do not contain the typed text.
+       WHY : runs entirely in the browser, so results appear instantly while typing.
+       HOW IT WORKS:
+         1. Grab the search box and all data rows (rows with class "record-row").
+         2. Every keystroke fires the "input" event -> filterRows() runs.
+         3. For each row: lower-case the name and treatment text, test if either contains the query,
+            then show (display = '') or hide (display = 'none') the row.
+         4. If nothing is visible, show the "No records match" row.
+       HOW TO FIX "search does nothing": open the browser console (F12). An error there usually means an id
+         (searchInput, recordsBody, noMatchRow) was renamed in the HTML above but not here.
+       HOW TO MODIFY: to also search Contact, read row.cells[3] and add it to the "match" test.
+       --------------------------------------------------------------------- */
+    const searchInput = document.getElementById('searchInput');                 // the text box
+    const dataRows = document.querySelectorAll('#recordsBody tr.record-row');   // only real data rows
+    const noMatchRow = document.getElementById('noMatchRow');                   // the hidden message row
+
+    function filterRows() {
+      const query = searchInput.value.trim().toLowerCase();   // typed text, lower-case so search ignores capitals
+      let visibleCount = 0;                                   // how many rows survive the filter
+
+      dataRows.forEach(function (row) {
+        const name = row.cells[1].textContent.toLowerCase();       // cell 1 = Patient Name
+        const treatment = row.cells[4].textContent.toLowerCase();  // cell 4 = Treatment
+        const isMatch = name.includes(query) || treatment.includes(query);   // an empty query matches everything
+        row.style.display = isMatch ? '' : 'none';                 // '' = default display, 'none' = hidden
+        if (isMatch) { visibleCount++; }
+      });
+
+      // Show the "no match" message only when there ARE rows but none are visible.
+      noMatchRow.style.display = (dataRows.length > 0 && visibleCount === 0) ? '' : 'none';
+    }
+
+    searchInput.addEventListener('input', filterRows);   // run the filter on every keystroke / clear click
+  </script>
+</body>
+</html>
